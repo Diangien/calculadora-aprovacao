@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculadora de Aprovação</title>
+<meta name="description" content="Calcula a nota que precisas no exame ou no recurso para seres aprovado." />
+
+<!-- PWA: manifest, ícones e cor de tema (usada na splash screen) -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#2451B3" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+<!-- iOS: comportamento de app instalada + splash screen básica -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Aprovação" />
+<link rel="apple-touch-startup-image" href="icons/icon-512.png" />
+
+<!-- Fontes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<!-- React + Babel (sem necessidade de build) -->
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<style>
+  /* ============================================================
+     TOKENS — identidade visual da Calculadora de Aprovação
+     ============================================================ */
+  :root{
+    --color-primary: #2451B3;
+    --color-primary-dark: #1B3D8F;
+    --color-primary-light: #4A73D1;
+    --color-primary-tint: #EAF1FF;
+    --color-success: #1F9D55;
+    --color-success-tint: #E8F8EE;
+    --color-success-dark: #167A42;
+    --color-danger: #D64545;
+    --color-danger-tint: #FDECEC;
+    --color-danger-dark: #B23434;
+    --color-warning: #E8A93B;
+    --color-warning-tint: #FDF3E1;
+    --color-warning-dark: #B9800F;
+    --color-ink: #1A2233;
+    --color-ink-soft: #5B6472;
+    --color-ink-faint: #8993A4;
+    --color-bg: #F5F7FC;
+    --color-surface: #FFFFFF;
+    --color-border: #E3E8F3;
+
+    --font-display: 'Sora', 'Segoe UI', sans-serif;
+    --font-body: 'Inter', 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
+
+    --shadow-soft: 0 2px 10px rgba(26,34,51,0.05), 0 8px 24px rgba(26,34,51,0.05);
+    --shadow-hover: 0 6px 16px rgba(26,34,51,0.07), 0 16px 40px rgba(26,34,51,0.09);
+    --shadow-press: 0 1px 4px rgba(26,34,51,0.08);
+  }
+
+  *,*::before,*::after{ box-sizing: border-box; }
+
+  html,body{ height:100%; }
+
+  body{
+    margin:0;
+    font-family: var(--font-body);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(36,81,179,0.06), transparent 40%),
+      radial-gradient(circle at 100% 20%, rgba(31,157,85,0.05), transparent 35%);
+    background-attachment: fixed;
+  }
+
+  #root{ min-height:100vh; display:flex; flex-direction:column; }
+
+  a, button { font-family: inherit; }
+
+  /* Foco visível para acessibilidade / navegação por teclado */
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection{ background: var(--color-primary-tint); color: var(--color-primary-dark); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ============================================================
+     LAYOUT GERAL
+     ============================================================ */
+  .app-main{
+    flex: 1;
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 20px 20px 0;
+  }
+
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    font-family: var(--font-display);
+    font-weight:700;
+    font-size: 1.05rem;
+    color: var(--color-primary-dark);
+    text-decoration:none;
+  }
+  .brand-mark{
+    width:34px; height:34px; border-radius:10px;
+    background: linear-gradient(145deg, var(--color-primary), var(--color-primary-dark));
+    display:flex; align-items:center; justify-content:center;
+    color:white; font-family: var(--font-mono); font-weight:700; font-size:0.85rem;
+    box-shadow: 0 3px 10px rgba(36,81,179,0.35);
+    flex-shrink:0;
+  }
+
+  .back-btn{
+    margin-left:auto;
+    display:flex; align-items:center; gap:6px;
+    background: var(--color-surface);
+    border:1px solid var(--color-border);
+    color: var(--color-ink-soft);
+    font-weight:600;
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor:pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform .15s ease, box-shadow .15s ease, color .15s ease;
+  }
+  .back-btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-hover); color: var(--color-primary-dark); }
+  .back-btn:active{ transform: translateY(0); box-shadow: var(--shadow-press); }
+
+  .history-btn{
+    display:flex; align-items:center; gap:6px;
+    background: var(--color-surface);
+    border:1px solid var(--color-border);
+    color: var(--color-ink-soft);
+    font-weight:600;
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor:pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform .15s ease, box-shadow .15s ease, color .15s ease;
+  }
+  .history-btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-hover); color: var(--color-primary-dark); }
+
+  /* ============================================================
+     PÁGINA INICIAL
+     ============================================================ */
+  .hero{
+    text-align:center;
+    padding: 64px 12px 24px;
+    animation: fadeUp .5s ease both;
+  }
+  .hero-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background: var(--color-primary-tint);
+    color: var(--color-primary-dark);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight:600;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 22px;
+  }
+  .hero-badge .dot{ width:6px; height:6px; border-radius:50%; background: var(--color-success); }
+
+  .hero h1{
+    font-family: var(--font-display);
+    font-size: clamp(2.1rem, 5vw, 3.2rem);
+    line-height: 1.08;
+    margin: 0 0 18px;
+    color: var(--color-ink);
+    letter-spacing: -0.02em;
+  }
+  .hero h1 span{ color: var(--color-primary); }
+
+  .hero p{
+    max-width: 480px;
+    margin: 0 auto 34px;
+    font-size: 1.05rem;
+    color: var(--color-ink-soft);
+    line-height: 1.6;
+  }
+
+  .btn-primary{
+    background: linear-gradient(145deg, var(--color-primary-light), var(--color-primary));
+    color:white;
+    border:none;
+    font-family: var(--font-display);
+    font-weight:700;
+    font-size: 1rem;
+    padding: 15px 34px;
+    border-radius: var(--radius-md);
+    cursor:pointer;
+    box-shadow: 0 8px 22px rgba(36,81,179,0.32);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 12px 28px rgba(36,81,179,0.4); }
+  .btn-primary:active{ transform: translateY(0); box-shadow: 0 4px 12px rgba(36,81,179,0.3); }
+
+  /* ============================================================
+     MENU / CARTÕES
+     ============================================================ */
+  .section-title{
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight:700;
+    margin: 4px 0 6px;
+    color: var(--color-ink);
+  }
+  .section-sub{
+    color: var(--color-ink-soft);
+    margin: 0 0 28px;
+    font-size: 0.98rem;
+  }
+
+  .card-grid{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 620px){
+    .card-grid{ grid-template-columns: 1fr; }
+  }
+
+  .menu-card{
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    text-align:left;
+    cursor:pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    display:flex; flex-direction:column; gap:14px;
+    animation: fadeUp .5s ease both;
+  }
+  .menu-card:hover{ transform: translateY(-4px); box-shadow: var(--shadow-hover); border-color: var(--color-primary-light); }
+  .menu-card:nth-child(1){ animation-delay: .02s; }
+  .menu-card:nth-child(2){ animation-delay: .08s; }
+  .menu-card:nth-child(3){ animation-delay: .14s; }
+  .menu-card:nth-child(4){ animation-delay: .2s; }
+
+  .menu-card-icon{
+    width:46px; height:46px; border-radius: 13px;
+    display:flex; align-items:center; justify-content:center;
+    background: var(--color-primary-tint);
+    color: var(--color-primary);
+  }
+  .menu-card h3{
+    font-family: var(--font-display);
+    font-size: 1.08rem;
+    margin: 0;
+    color: var(--color-ink);
+  }
+  .menu-card p{
+    margin:0; color: var(--color-ink-soft); font-size: 0.88rem; line-height:1.5;
+  }
+  .menu-card-arrow{
+    margin-top:auto;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-primary);
+    font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+
+  /* ============================================================
+     FORMULÁRIO / CALCULADORAS
+     ============================================================ */
+  .calc-shell{
+    animation: fadeUp .4s ease both;
+  }
+
+  .form-panel{
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: var(--shadow-soft);
+    margin-bottom: 22px;
+  }
+
+  .field-row{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 6px;
+  }
+
+  .field{
+    display:flex; flex-direction:column; gap:7px;
+  }
+  .field label{
+    font-size: 0.82rem;
+    font-weight:600;
+    color: var(--color-ink-soft);
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .field label .scale-hint{
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-ink-faint);
+    font-weight:500;
+  }
+
+  .field input{
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    font-weight:600;
+    color: var(--color-ink);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--color-border);
+    background: var(--color-bg);
+    transition: border-color .15s ease, background .15s ease;
+    width:100%;
+  }
+  .field input:hover{ border-color: var(--color-primary-light); }
+  .field input:focus{ border-color: var(--color-primary); background: white; outline:none; }
+  .field input.has-error{ border-color: var(--color-danger); background: var(--color-danger-tint); }
+
+  .field-error{
+    font-size: 0.78rem;
+    color: var(--color-danger-dark);
+    font-weight:600;
+    min-height: 1em;
+  }
+
+  .btn-row{
+    display:flex; gap:12px; margin-top: 20px; flex-wrap:wrap;
+  }
+
+  .btn-calc{
+    background: var(--color-ink);
+    color:white;
+    border:none;
+    font-family: var(--font-display);
+    font-weight:700;
+    font-size: 0.92rem;
+    padding: 13px 26px;
+    border-radius: var(--radius-md);
+    cursor:pointer;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .btn-calc:hover{ transform: translateY(-2px); background: #0F1522; }
+
+  .btn-ghost{
+    background: transparent;
+    border: 1.5px solid var(--color-border);
+    color: var(--color-ink-soft);
+    font-weight:600;
+    font-size: 0.88rem;
+    padding: 12px 22px;
+    border-radius: var(--radius-md);
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  .btn-ghost:hover{ border-color: var(--color-primary); color: var(--color-primary-dark); }
+
+  /* ============================================================
+     RESULTADO
+     ============================================================ */
+  .result-panel{
+    border-radius: var(--radius-lg);
+    padding: 30px;
+    box-shadow: var(--shadow-soft);
+    animation: popIn .4s cubic-bezier(.2,.8,.2,1) both;
+    border: 1.5px solid transparent;
+  }
+  .result-panel.neutral{ background: var(--color-surface); border-color: var(--color-border); }
+  .result-panel.success{ background: var(--color-success-tint); border-color: rgba(31,157,85,0.25); }
+  .result-panel.danger{ background: var(--color-danger-tint); border-color: rgba(214,69,69,0.25); }
+
+  .result-status{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family: var(--font-display);
+    font-weight:800;
+    font-size: 1.2rem;
+    padding: 8px 18px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .result-status.success{ background: var(--color-success); color:white; }
+  .result-status.danger{ background: var(--color-danger); color:white; }
+
+  .result-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .result-item{
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(26,34,51,0.06);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+  .result-item .label{
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-ink-soft);
+    font-weight:700;
+    margin-bottom:6px;
+    display:block;
+  }
+  .result-item .value{
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    font-weight:700;
+    color: var(--color-ink);
+  }
+  .result-item .value.big{ font-size: 2.1rem; color: var(--color-primary-dark); }
+
+  .encouragement{
+    margin: 18px 0 4px;
+    font-size: 0.98rem;
+    color: var(--color-ink);
+    line-height:1.55;
+    background: rgba(255,255,255,0.55);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+
+  /* Régua / escala 0–20 (elemento assinatura) */
+  .ruler-wrap{ margin: 22px 0 6px; }
+  .ruler-label{
+    display:flex; justify-content:space-between;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-ink-faint);
+    margin-bottom: 6px;
+  }
+  .ruler{
+    position:relative;
+    height: 14px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--color-border) 0%, var(--color-border) 100%);
+    overflow:visible;
+  }
+  .ruler-track{
+    position:absolute; inset:0;
+    border-radius:999px;
+    background: repeating-linear-gradient(
+      to right,
+      rgba(26,34,51,0.06) 0, rgba(26,34,51,0.06) 1px,
+      transparent 1px, transparent calc(100%/20)
+    );
+  }
+  .ruler-fill{
+    position:absolute; top:0; left:0; bottom:0;
+    border-radius: 999px;
+    transition: width .6s cubic-bezier(.2,.8,.2,1);
+  }
+  .ruler-marker{
+    position:absolute; top:-7px;
+    width: 3px; height: 28px;
+    background: var(--color-ink);
+    border-radius: 2px;
+    transform: translateX(-50%);
+    transition: left .6s cubic-bezier(.2,.8,.2,1);
+  }
+  .ruler-marker::after{
+    content: attr(data-val);
+    position:absolute; top:-24px; left:50%; transform:translateX(-50%);
+    font-family: var(--font-mono); font-size:0.72rem; font-weight:700;
+    color: var(--color-ink); white-space:nowrap;
+  }
+  .ruler-pass-line{
+    position:absolute; top:-4px; bottom:-4px;
+    width:2px; background: var(--color-ink-faint);
+    left: 50%;
+  }
+
+  /* ============================================================
+     BOTÃO "MOSTRAR CÁLCULO"
+     ============================================================ */
+  .steps-toggle{
+    margin-top: 20px;
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-weight:700;
+    font-size: 0.88rem;
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    padding: 6px 0;
+  }
+  .steps-toggle svg{ transition: transform .25s ease; }
+  .steps-toggle.open svg{ transform: rotate(180deg); }
+
+  .steps-panel{
+    margin-top: 14px;
+    background: var(--color-ink);
+    color: #E4E9F5;
+    border-radius: var(--radius-md);
+    padding: 20px 22px;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    line-height: 1.9;
+    overflow:hidden;
+    animation: expandIn .3s ease both;
+  }
+  .steps-panel .step-line{ opacity:0.92; }
+  .steps-panel .step-title{
+    color: #8FB2F5;
+    font-weight:700;
+    margin-top: 10px;
+  }
+  .steps-panel .step-title:first-child{ margin-top:0; }
+
+  /* ============================================================
+     HISTÓRICO
+     ============================================================ */
+  .history-list{ display:flex; flex-direction:column; gap:12px; }
+  .history-item{
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    display:flex; align-items:center; gap:14px;
+    box-shadow: var(--shadow-soft);
+    animation: fadeUp .35s ease both;
+  }
+  .history-badge{
+    width: 40px; height:40px; flex-shrink:0;
+    border-radius: 12px;
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--font-mono); font-weight:700; font-size:0.85rem;
+  }
+  .history-badge.success{ background: var(--color-success-tint); color: var(--color-success-dark); }
+  .history-badge.danger{ background: var(--color-danger-tint); color: var(--color-danger-dark); }
+  .history-badge.neutral{ background: var(--color-primary-tint); color: var(--color-primary-dark); }
+
+  .history-main{ flex:1; min-width:0; }
+  .history-main .h-type{ font-weight:700; font-size:0.92rem; color: var(--color-ink); }
+  .history-main .h-meta{ font-size:0.78rem; color: var(--color-ink-faint); margin-top:2px; }
+  .history-main .h-values{ font-size:0.78rem; color: var(--color-ink-soft); margin-top:4px; font-family: var(--font-mono); }
+
+  .history-result{
+    font-family: var(--font-mono); font-weight:700; font-size:1.05rem; text-align:right; flex-shrink:0;
+  }
+
+  .empty-state{
+    text-align:center;
+    padding: 60px 20px;
+    color: var(--color-ink-soft);
+  }
+  .empty-state .icon{ font-size: 2.4rem; margin-bottom: 12px; opacity:0.5; }
+
+  /* ============================================================
+     ALERTA (amarelo)
+     ============================================================ */
+  .alert-banner{
+    display:flex; align-items:flex-start; gap:12px;
+    background: var(--color-warning-tint);
+    border: 1px solid rgba(232,169,59,0.4);
+    color: var(--color-warning-dark);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    font-size: 0.88rem;
+    margin-bottom: 18px;
+    animation: fadeUp .3s ease both;
+  }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  .app-footer{
+    border-top: 1px solid var(--color-border);
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(6px);
+    padding: 22px 20px;
+    text-align:center;
+    margin-top: auto;
+  }
+  .app-footer p{
+    margin:0;
+    font-size: 0.8rem;
+    color: var(--color-ink-faint);
+    font-family: var(--font-body);
+    letter-spacing: 0.01em;
+  }
+  .app-footer strong{ color: var(--color-ink-soft); font-weight:600; }
+
+  /* ============================================================
+     LOADING DISCRETO
+     ============================================================ */
+  .mini-loader{
+    display:inline-flex; gap:4px; align-items:center;
+  }
+  .mini-loader span{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--color-primary);
+    animation: bounce 1s infinite ease-in-out;
+  }
+  .mini-loader span:nth-child(2){ animation-delay: .15s; }
+  .mini-loader span:nth-child(3){ animation-delay: .3s; }
+
+  /* ============================================================
+     ANIMAÇÕES
+     ============================================================ */
+  @keyframes fadeUp{
+    from{ opacity:0; transform: translateY(10px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+  @keyframes popIn{
+    from{ opacity:0; transform: scale(0.97) translateY(6px); }
+    to{ opacity:1; transform: scale(1) translateY(0); }
+  }
+  @keyframes expandIn{
+    from{ opacity:0; transform: translateY(-6px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+  @keyframes bounce{
+    0%,80%,100%{ transform: scale(0.6); opacity:0.5; }
+    40%{ transform: scale(1); opacity:1; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useCallback } = React;
+
+/* ================================================================
+   UTILITÁRIOS DE CÁLCULO ACADÉMICO
+   ================================================================ */
+
+// Arredonda para 2 casas decimais, evitando problemas de vírgula flutuante
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// Formata número para exibição no formato português (vírgula decimal)
+const fmt = (n) => {
+  if (n === null || n === undefined || Number.isNaN(n)) return "--";
+  return round2(n).toFixed(2).replace(".", ",");
+};
+
+// Média das provas parcelares: MédiaPP = (PP1 + PP2) / 2
+const calcMediaPP = (pp1, pp2) => (pp1 + pp2) / 2;
+
+// Classificação final no exame: CF = MédiaPP × 0,4 + Exame × 0,6
+const calcCFExame = (mediaPP, exame) => mediaPP * 0.4 + exame * 0.6;
+
+// Classificação final no recurso: CF = MédiaPP × 0,2 + Recurso × 0,8
+const calcCFRecurso = (mediaPP, recurso) => mediaPP * 0.2 + recurso * 0.8;
+
+// Nota mínima necessária no exame para CF = 10
+const calcNotaMinExame = (mediaPP) => (10 - mediaPP * 0.4) / 0.6;
+
+// Nota mínima necessária no recurso para CF = 10
+const calcNotaMinRecurso = (mediaPP) => (10 - mediaPP * 0.2) / 0.8;
+
+const APROVACAO_MINIMA = 10;
+const ESCALA_MAX = 20;
+const ESCALA_MIN = 0;
+
+/* ================================================================
+   VALIDAÇÃO DE CAMPOS (0 a 20, sem vazios, sem negativos)
+   ================================================================ */
+function validarNota(valorTexto) {
+  if (valorTexto === "" || valorTexto === null || valorTexto === undefined) {
+    return { valido: false, erro: "Este campo é obrigatório." };
+  }
+  const normalizado = String(valorTexto).replace(",", ".");
+  const numero = Number(normalizado);
+  if (Number.isNaN(numero)) {
+    return { valido: false, erro: "Introduz apenas números." };
+  }
+  if (numero < ESCALA_MIN) {
+    return { valido: false, erro: "O valor não pode ser negativo." };
+  }
+  if (numero > ESCALA_MAX) {
+    return { valido: false, erro: `O valor máximo é ${ESCALA_MAX}.` };
+  }
+  return { valido: true, numero };
+}
+
+/* ================================================================
+   HISTÓRICO (LocalStorage) — últimos 20 cálculos
+   ================================================================ */
+const HISTORY_KEY = "calculadora-aprovacao:historico";
+const MAX_HISTORY = 20;
+
+function lerHistorico() {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function guardarNoHistorico(registo) {
+  try {
+    const atual = lerHistorico();
+    const novo = [registo, ...atual].slice(0, MAX_HISTORY);
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(novo));
+    return novo;
+  } catch (e) {
+    return lerHistorico();
+  }
+}
+
+function limparHistorico() {
+  try {
+    window.localStorage.removeItem(HISTORY_KEY);
+  } catch (e) {}
+}
+
+function agora() {
+  const d = new Date();
+  return {
+    data: d.toLocaleDateString("pt-PT"),
+    hora: d.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
+/* ================================================================
+   ÍCONES (SVG inline, sem dependências externas)
+   ================================================================ */
+const Icon = ({ name, size = 22 }) => {
+  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    target: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></>,
+    check: <><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></>,
+    flag: <><path d="M5 3v18"/><path d="M5 4h11l-2 4 2 4H5"/></>,
+    repeat: <><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></>,
+    back: <><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></>,
+    history: <><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></>,
+    trash: <><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></>,
+    chevronDown: <path d="M6 9l6 6 6-6"/>,
+    checkCircle: <><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></>,
+    xCircle: <><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></>,
+    inbox: <><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
+  };
+  return <svg {...common}>{paths[name]}</svg>;
+};
+
+/* ================================================================
+   COMPONENTE: Painel de passos do cálculo ("Mostrar cálculo")
+   ================================================================ */
+function PainelDeCalculo({ pp1, pp2, mediaPP, terceiraNota, terceiraLabel, peso1, peso2, cf }) {
+  const [aberto, setAberto] = useState(false);
+
+  return (
+    <div>
+      <button
+        className={"steps-toggle" + (aberto ? " open" : "")}
+        onClick={() => setAberto(!aberto)}
+        aria-expanded={aberto}
+        aria-controls="painel-passos"
+      >
+        Mostrar cálculo
+        <Icon name="chevronDown" size={16} />
+      </button>
+
+      {aberto && (
+        <div className="steps-panel" id="painel-passos" role="region" aria-label="Passos do cálculo">
+          <div className="step-title">Média das PP</div>
+          <div className="step-line">({fmt(pp1)} + {fmt(pp2)}) ÷ 2 = {fmt(mediaPP)}</div>
+
+          <div className="step-title">Classificação Final</div>
+          <div className="step-line">{fmt(mediaPP)} × {peso1} + {terceiraNota !== null ? fmt(terceiraNota) : "x"} × {peso2}</div>
+          <div className="step-line">{fmt(mediaPP * peso1)} + {terceiraNota !== null ? fmt(terceiraNota * peso2) : `${peso2}x`}</div>
+          <div className="step-line">{cf !== null ? fmt(cf) : `Resolver para x = 10 → x = ${fmt(terceiraNota)}`}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   COMPONENTE: Régua 0–20 (elemento visual assinatura)
+   ================================================================ */
+function ReguaEscala({ valor, corZona }) {
+  const clamped = Math.max(0, Math.min(20, valor));
+  const pct = (clamped / 20) * 100;
+  const corMap = {
+    success: "var(--color-success)",
+    warning: "var(--color-warning)",
+    danger: "var(--color-danger)",
+  };
+  return (
+    <div className="ruler-wrap">
+      <div className="ruler-label">
+        <span>0</span>
+        <span>10 (mínimo)</span>
+        <span>20</span>
+      </div>
+      <div className="ruler" role="img" aria-label={`Escala de 0 a 20 valores, marcador em ${fmt(valor)}`}>
+        <div className="ruler-track"></div>
+        <div className="ruler-fill" style={{ width: pct + "%", background: corMap[corZona] || corMap.warning, opacity: 0.35 }}></div>
+        <div className="ruler-pass-line"></div>
+        <div className="ruler-marker" style={{ left: pct + "%" }} data-val={fmt(valor)}></div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   COMPONENTE: Campo de nota com validação
+   ================================================================ */
+function CampoNota({ id, label, valor, onChange, erro }) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>
+        {label}
+        <span className="scale-hint">0–20</span>
+      </label>
+      <input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        placeholder="ex: 12,5"
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        className={erro ? "has-error" : ""}
+        aria-invalid={!!erro}
+        aria-describedby={erro ? id + "-erro" : undefined}
+      />
+      <div className="field-error" id={id + "-erro"} role="alert">{erro || ""}</div>
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ 1 — CALCULAR NOTA NECESSÁRIA NO EXAME
+   ================================================================ */
+function CalcularNotaExame({ onGuardar }) {
+  const [pp1, setPp1] = useState("");
+  const [pp2, setPp2] = useState("");
+  const [erros, setErros] = useState({});
+  const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    const v1 = validarNota(pp1);
+    const v2 = validarNota(pp2);
+    const novosErros = {};
+    if (pp1 !== "" && !v1.valido) novosErros.pp1 = v1.erro;
+    if (pp2 !== "" && !v2.valido) novosErros.pp2 = v2.erro;
+    setErros(novosErros);
+
+    if (v1.valido && v2.valido) {
+      const mediaPP = calcMediaPP(v1.numero, v2.numero);
+      const notaMin = calcNotaMinExame(mediaPP);
+      setResultado({ mediaPP, notaMin, pp1: v1.numero, pp2: v2.numero });
+    } else {
+      setResultado(null);
+    }
+  }, [pp1, pp2]);
+
+  const impossivel = resultado && resultado.notaMin > 20;
+  const jaAprovado = resultado && resultado.notaMin <= 0;
+
+  const zona = !resultado ? "warning" : impossivel ? "danger" : resultado.notaMin > 14 ? "warning" : "success";
+
+  const guardarResultado = () => {
+    if (!resultado) return;
+    onGuardar({
+      tipo: "Nota necessária no exame",
+      valores: `PP1: ${fmt(resultado.pp1)} · PP2: ${fmt(resultado.pp2)}`,
+      resultado: impossivel ? "Não é matematicamente possível" : `${fmt(Math.max(0, resultado.notaMin))} no exame`,
+      situacao: "neutral",
+    });
+  };
+
+  return (
+    <div className="calc-shell">
+      <h2 className="section-title">Nota necessária no exame</h2>
+      <p className="section-sub">Introduz as tuas provas parcelares para saberes quanto precisas no exame.</p>
+
+      <div className="form-panel">
+        <div className="field-row">
+          <CampoNota id="ex-pp1" label="PP1" valor={pp1} onChange={setPp1} erro={erros.pp1} />
+          <CampoNota id="ex-pp2" label="PP2" valor={pp2} onChange={setPp2} erro={erros.pp2} />
+        </div>
+      </div>
+
+      {resultado && (
+        <div className={"result-panel " + (impossivel ? "danger" : "neutral")}>
+          <div className="result-grid">
+            <div className="result-item">
+              <span className="label">Média das PP</span>
+              <span className="value">{fmt(resultado.mediaPP)}</span>
+            </div>
+            <div className="result-item">
+              <span className="label">Nota mínima no exame</span>
+              <span className="value big">{impossivel ? "—" : fmt(Math.max(0, resultado.notaMin))}</span>
+            </div>
+          </div>
+
+          <p className="encouragement">
+            {impossivel
+              ? "Com estas parcelares, não é matematicamente possível atingir 10 valores só com o exame (precisarias de mais de 20). Fala com o teu docente sobre as opções disponíveis."
+              : jaAprovado
+              ? "Já estás matematicamente aprovado antes do exame — mesmo com 0 valores, a tua classificação final chega a 10. Continua assim!"
+              : `Precisas de obter pelo menos ${fmt(Math.max(0, resultado.notaMin))} valores no exame para seres aprovado.`}
+          </p>
+
+          {!impossivel && <ReguaEscala valor={Math.max(0, resultado.notaMin)} corZona={zona} />}
+
+          <PainelDeCalculo
+            pp1={resultado.pp1}
+            pp2={resultado.pp2}
+            mediaPP={resultado.mediaPP}
+            terceiraNota={impossivel ? null : Math.max(0, resultado.notaMin)}
+            peso1="0,4"
+            peso2="0,6"
+            cf={impossivel ? null : APROVACAO_MINIMA}
+          />
+
+          <div className="btn-row">
+            <button className="btn-calc" onClick={guardarResultado}>Guardar no histórico</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ 2 — VERIFICAR RESULTADO DO EXAME
+   ================================================================ */
+function VerificarResultadoExame({ onGuardar, onIrParaRecurso }) {
+  const [pp1, setPp1] = useState("");
+  const [pp2, setPp2] = useState("");
+  const [exame, setExame] = useState("");
+  const [erros, setErros] = useState({});
+  const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    const v1 = validarNota(pp1);
+    const v2 = validarNota(pp2);
+    const v3 = validarNota(exame);
+    const novosErros = {};
+    if (pp1 !== "" && !v1.valido) novosErros.pp1 = v1.erro;
+    if (pp2 !== "" && !v2.valido) novosErros.pp2 = v2.erro;
+    if (exame !== "" && !v3.valido) novosErros.exame = v3.erro;
+    setErros(novosErros);
+
+    if (v1.valido && v2.valido && v3.valido) {
+      const mediaPP = calcMediaPP(v1.numero, v2.numero);
+      const cf = calcCFExame(mediaPP, v3.numero);
+      setResultado({ mediaPP, cf, exame: v3.numero, pp1: v1.numero, pp2: v2.numero, aprovado: cf >= APROVACAO_MINIMA });
+    } else {
+      setResultado(null);
+    }
+  }, [pp1, pp2, exame]);
+
+  const guardarResultado = () => {
+    if (!resultado) return;
+    onGuardar({
+      tipo: "Resultado do exame",
+      valores: `PP1: ${fmt(resultado.pp1)} · PP2: ${fmt(resultado.pp2)} · Exame: ${fmt(resultado.exame)}`,
+      resultado: `CF ${fmt(resultado.cf)} — ${resultado.aprovado ? "Aprovado" : "Reprovado"}`,
+      situacao: resultado.aprovado ? "success" : "danger",
+    });
+  };
+
+  return (
+    <div className="calc-shell">
+      <h2 className="section-title">Resultado do exame</h2>
+      <p className="section-sub">Confirma se ficaste aprovado depois do exame.</p>
+
+      <div className="form-panel">
+        <div className="field-row">
+          <CampoNota id="vr-pp1" label="PP1" valor={pp1} onChange={setPp1} erro={erros.pp1} />
+          <CampoNota id="vr-pp2" label="PP2" valor={pp2} onChange={setPp2} erro={erros.pp2} />
+          <CampoNota id="vr-exame" label="Exame" valor={exame} onChange={setExame} erro={erros.exame} />
+        </div>
+      </div>
+
+      {resultado && (
+        <div className={"result-panel " + (resultado.aprovado ? "success" : "danger")}>
+          <div className={"result-status " + (resultado.aprovado ? "success" : "danger")}>
+            <Icon name={resultado.aprovado ? "checkCircle" : "xCircle"} size={20} />
+            {resultado.aprovado ? "Aprovado" : "Reprovado"}
+          </div>
+
+          <div className="result-grid">
+            <div className="result-item">
+              <span className="label">Média das PP</span>
+              <span className="value">{fmt(resultado.mediaPP)}</span>
+            </div>
+            <div className="result-item">
+              <span className="label">Nota do exame</span>
+              <span className="value">{fmt(resultado.exame)}</span>
+            </div>
+            <div className="result-item">
+              <span className="label">Classificação final</span>
+              <span className="value big">{fmt(resultado.cf)}</span>
+            </div>
+          </div>
+
+          <ReguaEscala valor={resultado.cf} corZona={resultado.aprovado ? "success" : "danger"} />
+
+          <PainelDeCalculo
+            pp1={resultado.pp1}
+            pp2={resultado.pp2}
+            mediaPP={resultado.mediaPP}
+            terceiraNota={resultado.exame}
+            peso1="0,4"
+            peso2="0,6"
+            cf={resultado.cf}
+          />
+
+          <div className="btn-row">
+            <button className="btn-calc" onClick={guardarResultado}>Guardar no histórico</button>
+            {!resultado.aprovado && (
+              <button className="btn-ghost" onClick={onIrParaRecurso}>
+                Calcular nota necessária no recurso
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ 3 — CALCULAR NOTA NECESSÁRIA NO RECURSO
+   ================================================================ */
+function CalcularNotaRecurso({ onGuardar }) {
+  const [pp1, setPp1] = useState("");
+  const [pp2, setPp2] = useState("");
+  const [erros, setErros] = useState({});
+  const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    const v1 = validarNota(pp1);
+    const v2 = validarNota(pp2);
+    const novosErros = {};
+    if (pp1 !== "" && !v1.valido) novosErros.pp1 = v1.erro;
+    if (pp2 !== "" && !v2.valido) novosErros.pp2 = v2.erro;
+    setErros(novosErros);
+
+    if (v1.valido && v2.valido) {
+      const mediaPP = calcMediaPP(v1.numero, v2.numero);
+      const notaMin = calcNotaMinRecurso(mediaPP);
+      setResultado({ mediaPP, notaMin, pp1: v1.numero, pp2: v2.numero });
+    } else {
+      setResultado(null);
+    }
+  }, [pp1, pp2]);
+
+  const impossivel = resultado && resultado.notaMin > 20;
+  const jaAprovado = resultado && resultado.notaMin <= 0;
+  const zona = !resultado ? "warning" : impossivel ? "danger" : resultado.notaMin > 14 ? "warning" : "success";
+
+  const guardarResultado = () => {
+    if (!resultado) return;
+    onGuardar({
+      tipo: "Nota necessária no recurso",
+      valores: `PP1: ${fmt(resultado.pp1)} · PP2: ${fmt(resultado.pp2)}`,
+      resultado: impossivel ? "Não é matematicamente possível" : `${fmt(Math.max(0, resultado.notaMin))} no recurso`,
+      situacao: "neutral",
+    });
+  };
+
+  return (
+    <div className="calc-shell">
+      <h2 className="section-title">Nota necessária no recurso</h2>
+      <p className="section-sub">Descobre quanto precisas no recurso para chegares aos 10 valores.</p>
+
+      <div className="form-panel">
+        <div className="field-row">
+          <CampoNota id="rn-pp1" label="PP1" valor={pp1} onChange={setPp1} erro={erros.pp1} />
+          <CampoNota id="rn-pp2" label="PP2" valor={pp2} onChange={setPp2} erro={erros.pp2} />
+        </div>
+      </div>
+
+      {resultado && (
+        <div className={"result-panel " + (impossivel ? "danger" : "neutral")}>
+          <div className="result-grid">
+            <div className="result-item">
+              <span className="label">Média das PP</span>
+              <span className="value">{fmt(resultado.mediaPP)}</span>
+            </div>
+            <div className="result-item">
+              <span className="label">Nota mínima no recurso</span>
+              <span className="value big">{impossivel ? "—" : fmt(Math.max(0, resultado.notaMin))}</span>
+            </div>
+          </div>
+
+          <p className="encouragement">
+            {impossivel
+              ? "Mesmo com 20 valores no recurso, não é possível atingir a classificação final mínima com estas parcelares. Fala com o teu docente sobre as opções disponíveis."
+              : jaAprovado
+              ? "As tuas parcelares já garantem, sozinhas, uma classificação final de pelo menos 10 no recurso."
+              : `Precisas de obter pelo menos ${fmt(Math.max(0, resultado.notaMin))} valores no recurso para seres aprovado.`}
+          </p>
+
+          {!impossivel && <ReguaEscala valor={Math.max(0, resultado.notaMin)} corZona={zona} />}
+
+          <PainelDeCalculo
+            pp1={resultado.pp1}
+            pp2={resultado.pp2}
+            mediaPP={resultado.mediaPP}
+            terceiraNota={impossivel ? null : Math.max(0, resultado.notaMin)}
+            peso1="0,2"
+            peso2="0,8"
+            cf={impossivel ? null : APROVACAO_MINIMA}
+          />
+
+          <div className="btn-row">
+            <button className="btn-calc" onClick={guardarResultado}>Guardar no histórico</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ 4 — VERIFICAR RESULTADO DO RECURSO
+   ================================================================ */
+function VerificarResultadoRecurso({ onGuardar }) {
+  const [pp1, setPp1] = useState("");
+  const [pp2, setPp2] = useState("");
+  const [recurso, setRecurso] = useState("");
+  const [erros, setErros] = useState({});
+  const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    const v1 = validarNota(pp1);
+    const v2 = validarNota(pp2);
+    const v3 = validarNota(recurso);
+    const novosErros = {};
+    if (pp1 !== "" && !v1.valido) novosErros.pp1 = v1.erro;
+    if (pp2 !== "" && !v2.valido) novosErros.pp2 = v2.erro;
+    if (recurso !== "" && !v3.valido) novosErros.recurso = v3.erro;
+    setErros(novosErros);
+
+    if (v1.valido && v2.valido && v3.valido) {
+      const mediaPP = calcMediaPP(v1.numero, v2.numero);
+      const cf = calcCFRecurso(mediaPP, v3.numero);
+      setResultado({ mediaPP, cf, recurso: v3.numero, pp1: v1.numero, pp2: v2.numero, aprovado: cf >= APROVACAO_MINIMA });
+    } else {
+      setResultado(null);
+    }
+  }, [pp1, pp2, recurso]);
+
+  const guardarResultado = () => {
+    if (!resultado) return;
+    onGuardar({
+      tipo: "Resultado do recurso",
+      valores: `PP1: ${fmt(resultado.pp1)} · PP2: ${fmt(resultado.pp2)} · Recurso: ${fmt(resultado.recurso)}`,
+      resultado: `CF ${fmt(resultado.cf)} — ${resultado.aprovado ? "Aprovado" : "Reprovado"}`,
+      situacao: resultado.aprovado ? "success" : "danger",
+    });
+  };
+
+  return (
+    <div className="calc-shell">
+      <h2 className="section-title">Resultado do recurso</h2>
+      <p className="section-sub">Confirma se ficaste aprovado depois do recurso.</p>
+
+      <div className="form-panel">
+        <div className="field-row">
+          <CampoNota id="vrr-pp1" label="PP1" valor={pp1} onChange={setPp1} erro={erros.pp1} />
+          <CampoNota id="vrr-pp2" label="PP2" valor={pp2} onChange={setPp2} erro={erros.pp2} />
+          <CampoNota id="vrr-recurso" label="Recurso" valor={recurso} onChange={setRecurso} erro={erros.recurso} />
+        </div>
+      </div>
+
+      {resultado && (
+        <div className={"result-panel " + (resultado.aprovado ? "success" : "danger")}>
+          <div className={"result-status " + (resultado.aprovado ? "success" : "danger")}>
+            <Icon name={resultado.aprovado ? "checkCircle" : "xCircle"} size={20} />
+            {resultado.aprovado ? "Aprovado" : "Reprovado"}
+          </div>
+
+          <div className="result-grid">
+            <div className="result-item">
+              <span className="label">Média das PP</span>
+              <span className="value">{fmt(resultado.mediaPP)}</span>
+            </div>
+            <div className="result-item">
+              <span className="label">Nota do recurso</span>
+              <span className="value">{fmt(resultado.recurso)}</span>
+            </div>
+            <div className="result-item">
+              <span className="label">Classificação final</span>
+              <span className="value big">{fmt(resultado.cf)}</span>
+            </div>
+          </div>
+
+          <ReguaEscala valor={resultado.cf} corZona={resultado.aprovado ? "success" : "danger"} />
+
+          <PainelDeCalculo
+            pp1={resultado.pp1}
+            pp2={resultado.pp2}
+            mediaPP={resultado.mediaPP}
+            terceiraNota={resultado.recurso}
+            peso1="0,2"
+            peso2="0,8"
+            cf={resultado.cf}
+          />
+
+          <div className="btn-row">
+            <button className="btn-calc" onClick={guardarResultado}>Guardar no histórico</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ — HISTÓRICO
+   ================================================================ */
+function Historico({ registos, onLimpar }) {
+  return (
+    <div className="calc-shell">
+      <h2 className="section-title">Histórico de cálculos</h2>
+      <p className="section-sub">Os teus últimos {MAX_HISTORY} cálculos ficam guardados neste dispositivo.</p>
+
+      {registos.length === 0 ? (
+        <div className="empty-state">
+          <div className="icon"><Icon name="inbox" size={40} /></div>
+          <p>Ainda não guardaste nenhum cálculo.</p>
+        </div>
+      ) : (
+        <>
+          <div className="history-list">
+            {registos.map((r) => (
+              <div className="history-item" key={r.id}>
+                <div className={"history-badge " + r.situacao}>
+                  <Icon name={r.situacao === "success" ? "checkCircle" : r.situacao === "danger" ? "xCircle" : "target"} size={18} />
+                </div>
+                <div className="history-main">
+                  <div className="h-type">{r.tipo}</div>
+                  <div className="h-meta">{r.data} às {r.hora}</div>
+                  <div className="h-values">{r.valores}</div>
+                </div>
+                <div className="history-result" style={{
+                  color: r.situacao === "success" ? "var(--color-success-dark)" : r.situacao === "danger" ? "var(--color-danger-dark)" : "var(--color-primary-dark)"
+                }}>
+                  {r.resultado}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="btn-row">
+            <button className="btn-ghost" onClick={onLimpar}>
+              <Icon name="trash" size={16} /> Apagar histórico
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ — MENU PRINCIPAL
+   ================================================================ */
+function Menu({ onNavegar }) {
+  const opcoes = [
+    { id: "nota-exame", icon: "target", titulo: "Calcular nota necessária no exame", desc: "A partir das tuas parcelares, descobre o mínimo para passar." },
+    { id: "resultado-exame", icon: "check", titulo: "Verificar resultado do exame", desc: "Introduz a nota do exame e confirma a tua situação." },
+    { id: "nota-recurso", icon: "repeat", titulo: "Calcular nota necessária no recurso", desc: "Descobre o mínimo que precisas no recurso." },
+    { id: "resultado-recurso", icon: "flag", titulo: "Verificar resultado do recurso", desc: "Introduz a nota do recurso e confirma a tua situação." },
+  ];
+
+  return (
+    <div>
+      <h2 className="section-title">O que precisas de calcular?</h2>
+      <p className="section-sub">Escolhe uma opção para começar.</p>
+      <div className="card-grid">
+        {opcoes.map((op) => (
+          <button className="menu-card" key={op.id} onClick={() => onNavegar(op.id)}>
+            <div className="menu-card-icon"><Icon name={op.icon} /></div>
+            <h3>{op.titulo}</h3>
+            <p>{op.desc}</p>
+            <span className="menu-card-arrow">Abrir →</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   ECRÃ — PÁGINA INICIAL
+   ================================================================ */
+function Home({ onComecar }) {
+  return (
+    <div className="hero">
+      <div className="hero-badge"><span className="dot"></span> Escala 0–20</div>
+      <h1>Calculadora de<br /><span>Aprovação</span></h1>
+      <p>Descobre rapidamente quanto precisas obter no exame ou recurso para ser aprovado.</p>
+      <button className="btn-primary" onClick={onComecar}>Começar</button>
+    </div>
+  );
+}
+
+/* ================================================================
+   APP PRINCIPAL
+   ================================================================ */
+function App() {
+  const [ecra, setEcra] = useState("home");
+  const [registos, setRegistos] = useState(() => lerHistorico());
+  const [carregando, setCarregando] = useState(false);
+
+  const navegar = useCallback((novoEcra) => {
+    setCarregando(true);
+    window.setTimeout(() => {
+      setEcra(novoEcra);
+      setCarregando(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 180);
+  }, []);
+
+  const guardarRegisto = useCallback((dados) => {
+    const { data, hora } = agora();
+    const registo = { id: Date.now() + Math.random(), data, hora, ...dados };
+    setRegistos(guardarNoHistorico(registo));
+  }, []);
+
+  const limparHistoricoHandler = useCallback(() => {
+    limparHistorico();
+    setRegistos([]);
+  }, []);
+
+  const titulos = {
+    "nota-exame": "Nota necessária no exame",
+    "resultado-exame": "Resultado do exame",
+    "nota-recurso": "Nota necessária no recurso",
+    "resultado-recurso": "Resultado do recurso",
+    "historico": "Histórico",
+  };
+
+  return (
+    <React.Fragment>
+      {ecra !== "home" && (
+        <div className="topbar">
+          <a
+            className="brand"
+            href="#"
+            onClick={(e) => { e.preventDefault(); navegar("home"); }}
+            aria-label="Voltar à página inicial"
+          >
+            <span className="brand-mark">CA</span>
+            Calculadora de Aprovação
+          </a>
+          {ecra !== "historico" && (
+            <button className="history-btn" onClick={() => navegar("historico")}>
+              <Icon name="history" size={16} /> Histórico
+            </button>
+          )}
+          {ecra !== "menu" && (
+            <button className="back-btn" onClick={() => navegar(ecra === "historico" ? "menu" : "menu")}>
+              <Icon name="back" size={16} /> Menu
+            </button>
+          )}
+        </div>
+      )}
+
+      <main className="app-main">
+        {carregando && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+            <div className="mini-loader" aria-label="A carregar">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        )}
+
+        {!carregando && ecra === "home" && <Home onComecar={() => navegar("menu")} />}
+        {!carregando && ecra === "menu" && <Menu onNavegar={navegar} />}
+        {!carregando && ecra === "nota-exame" && <CalcularNotaExame onGuardar={guardarRegisto} />}
+        {!carregando && ecra === "resultado-exame" && (
+          <VerificarResultadoExame onGuardar={guardarRegisto} onIrParaRecurso={() => navegar("nota-recurso")} />
+        )}
+        {!carregando && ecra === "nota-recurso" && <CalcularNotaRecurso onGuardar={guardarRegisto} />}
+        {!carregando && ecra === "resultado-recurso" && <VerificarResultadoRecurso onGuardar={guardarRegisto} />}
+        {!carregando && ecra === "historico" && <Historico registos={registos} onLimpar={limparHistoricoHandler} />}
+      </main>
+
+      <Footer />
+    </React.Fragment>
+  );
+}
+
+/* ================================================================
+   FOOTER — visível em todas as páginas, com ano atual dinâmico
+   ================================================================ */
+function Footer() {
+  const ano = new Date().getFullYear();
+  return (
+    <footer className="app-footer">
+      <p>© {ano} Desenvolvido por <strong>Diangienda Nkana – 2.º Ano de Engenharia Informática</strong></p>
+    </footer>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+
+<script>
+  /* ================================================================
+     REGISTO DO SERVICE WORKER
+     Ativa o funcionamento offline e a instalação como aplicação (PWA).
+     ================================================================ */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("service-worker.js")
+        .catch((erro) => console.warn("Falha ao registar o service worker:", erro));
+    });
+  }
+</script>
+</body>
+</html>
