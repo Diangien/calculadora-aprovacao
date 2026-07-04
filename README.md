@@ -1,4 +1,4 @@
-*Calculadora de Aprovação Académica*
+# Calculadora de Aprovação Académica
 Esta calculadora é uma aplicação web desenvolvida para auxiliar estudantes universitários a planearem o seu desempenho académico.
 Através das notas das Provas Parcelares (PP1 e PP2), o estudante pode calcular automaticamente:
 
